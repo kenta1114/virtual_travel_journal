@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, ChangeEvent } from "react";
 import { AuthForm } from "./AuthForm";
 import { Header } from "./Header";
 import { EntryForm } from "./EntryForm";
@@ -29,7 +29,13 @@ export function TravelJournal() {
   const [isSignUpPage, setIsSignUpPage] = useState(false);
   const [user, setUser] = useState<User | null>(loadSavedUser);
   const [entries, setEntries] = useState(loadSavedEntries);
-  const [newEntry, setNewEntry] = useState({
+  const [newEntry, setNewEntry] = useState<{
+    title: string;
+    date: string;
+    location: string;
+    notes: string;
+    image: string | null;
+  }>({
     title: "",
     date: "",
     location: "",
@@ -38,8 +44,8 @@ export function TravelJournal() {
   });
 
   const [editMode, setEditMode] = useState(false);
-  const [editIndex, setEditIndex] = useState(null);
-  const [suggestions, setSuggestions] = useState([]);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<{ place_id: string; description: string }[]>([]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -56,7 +62,7 @@ export function TravelJournal() {
     setUser(userData);
   };
 
-  const handleLocationChange = async (e) => {
+  const handleLocationChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setNewEntry({ ...newEntry, location: value });
 
@@ -73,17 +79,27 @@ export function TravelJournal() {
     }
   };
 
-  const handleSelectLocation = (place) => {
+  interface Suggestion {
+    place_id: string;
+    description: string;
+  }
+
+
+  const handleSelectLocation = (place: Suggestion) => {
     setNewEntry({ ...newEntry, location: place.description });
     setSuggestions([]);
   };
 
-  const handleImageUpload = useCallback((file) => {
+  interface ImageUploadHandler {
+    (file: File): void;
+  }
+
+  const handleImageUpload: ImageUploadHandler = useCallback((file: File) => {
     const fakeUrl = URL.createObjectURL(file);
     setNewEntry((prev) => ({ ...prev, image: fakeUrl }));
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!newEntry.title || !newEntry.date || !newEntry.location) {
@@ -92,7 +108,7 @@ export function TravelJournal() {
     }
 
     if (editMode && editIndex !== null) {
-      const updatedEntries = entries.map((entry, index) =>
+      const updatedEntries = entries.map((entry: typeof newEntry, index: number) =>
         index === editIndex ? newEntry : entry
       );
       setEntries(updatedEntries);
@@ -114,16 +130,25 @@ export function TravelJournal() {
     setEditIndex(null);
   };
 
-  const handleEditEntry = (index) => {
+  const handleEditEntry = (index:number) => {
     setEditMode(true);
     setEditIndex(index);
     setNewEntry(entries[index]);
   };
 
-  const handleDeleteEntry = (index) => {
+  const deleteEntry = async (entryId:number, entries:any, setEntries:any) => {
+    const updatedEntries = entries.filter((entry:any) => entry.id !== entryId);
+    setEntries(updatedEntries);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("journalEntries", JSON.stringify(updatedEntries));
+    }
+  };
+
+  const handleDeleteEntry = async (index:number) => {
     if (window.confirm("このエントリを削除してもよろしいですか？")) {
-      const updatedEntries = entries.filter((_, i) => i !== index);
-      setEntries(updatedEntries);
+      const entryId = entries[index].id;
+      await deleteEntry(entryId,entries,setEntries);
     }
   };
 
