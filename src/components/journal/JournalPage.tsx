@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Header } from './Header';
 import { EntryForm } from './EntryForm';
 import { EntryList } from './EntryList';
