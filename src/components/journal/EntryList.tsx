@@ -1,4 +1,3 @@
-import React from 'react';
 import { Edit2, Trash2, Calendar, MapPin } from 'lucide-react';
 import { Entry } from '../../types';
 
