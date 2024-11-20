@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { AuthPage } from './components/auth/AuthPage';
 import { JournalPage } from './components/journal/JournalPage';
 import { User } from './types';
