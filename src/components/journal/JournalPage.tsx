@@ -42,12 +42,7 @@ export function JournalPage({ user, onLogout }: JournalPageProps) {
     setNewEntry({ ...newEntry, location: value });
 
     if (value.length > 2) {
-      const fakeSuggestions = [
-        { place_id: "1", description: "東京, 日本" },
-        { place_id: "2", description: "大阪, 日本" },
-        { place_id: "3", description: "京都, 日本" },
-        { place_id: "4", description: "札幌, 日本" },
-      ];
+      const fakeSuggestions = [];
       setSuggestions(fakeSuggestions);
     } else {
       setSuggestions([]);
