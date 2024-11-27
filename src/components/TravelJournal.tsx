@@ -67,7 +67,7 @@ export function TravelJournal() {
     setNewEntry({ ...newEntry, location: value });
 
     if (value.length > 2) {
-      const fakeSuggestions = [ ];
+      const fakeSuggestions: Suggestion[] = [ ];
       setSuggestions(fakeSuggestions);
     } else {
       setSuggestions([]);
