@@ -1,24 +1,31 @@
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { AuthPage } from './components/auth/AuthPage';
 import { JournalPage } from './components/journal/JournalPage';
 import { MapView } from "./components/MapView";
-import {RouteSaver} from "./components/RouterSaver";
+import {RouteSaver} from "./components/RouteSaver";
 import {NearbySuggestions} from "./components/NearbySuggestions";
 import { User } from "./types";
 
 function App() {
+  const [user, setUser] = useState<User | null>(null);
   const [savedRoute, setSavedRoute] = useState<{lat:number; lng:number; title:string}[]>([]);
+  const [selectedLocation] = useState<{lat:number; lng:number} | null>(null);
 
-  const loadSavedUser = () => {
-    if (typeof window !== "undefined") {
-      const savedUser = localStorage.getItem("user");
-      return savedUser ? JSON.parse(savedUser) : null;
-    }
-    return null;
-  };
+  useEffect(()=>{
+    const savedUser = localStorage.getItem("user");
+    if(savedUser){
+      setUser(JSON.parse(savedUser));
+    } 
+  },[]);
 
-  const [user, setUser] = useState<User | null>(loadSavedUser);
-  const [selectedLocation,setSelectedLocation] = useState<{lat:number; lng:number} | null>(null);
+  // const loadSavedUser = () => {
+  //   if (typeof window !== "undefined") {
+  //     const savedUser = localStorage.getItem("user");
+  //     return savedUser ? JSON.parse(savedUser) : null;
+  //   }
+  //   return null;
+  // };
+
 
   const handleSaveRoute = (route:{lat:number;lng:number;title:string}[])=>{
     setSavedRoute(route);
@@ -34,9 +41,9 @@ function App() {
     setUser(null);
   };
 
-  const handleLocationSelect = (location:{lat:number; lng:number})=>{
-    setSelectedLocation(location);
-  };
+  // const handleLocationSelect = (location:{lat:number; lng:number})=>{
+  //   setSelectedLocation(location);
+  // };
   
   if (!user) {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
@@ -61,7 +68,7 @@ function App() {
 
 
     </div>
-  ) 
+  ); 
 }
 
 export default App;
