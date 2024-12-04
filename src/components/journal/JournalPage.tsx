@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Header } from './Header';
-import { EntryForm } from './EntryForm';
+import { EntryForm } from './Entry';
 import { EntryList } from './EntryList';
 import { User, Entry, Place } from '../../types';
 
