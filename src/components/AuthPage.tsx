@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { AuthForm } from './AuthForm';
-import { User } from '../../types';
+import { useState } from "react";
+import { AuthForm } from "../components/AuthForm";
+import { User } from "../types";
 
 interface AuthPageProps {
   onAuthSuccess: (userData: User) => void;
@@ -17,8 +17,8 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
           <h1 className="text-4xl font-bold text-[#2c5f2d] mb-8 text-center">
             Virtual Travel Journal
           </h1>
-          {(isLoginPage || isSignUpPage) ? (
-            <AuthForm 
+          {isLoginPage || isSignUpPage ? (
+            <AuthForm
               isLogin={isLoginPage}
               onClose={() => {
                 setIsLoginPage(false);
