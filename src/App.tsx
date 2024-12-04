@@ -22,13 +22,6 @@ function App() {
     }
   }, []);
 
-  // const loadSavedUser = () => {
-  //   if (typeof window !== "undefined") {
-  //     const savedUser = localStorage.getItem("user");
-  //     return savedUser ? JSON.parse(savedUser) : null;
-  //   }
-  //   return null;
-  // };
 
   const handleSaveRoute = (
     route: { lat: number; lng: number; title: string }[]
