@@ -90,8 +90,12 @@ export function TravelJournal() {
   }
 
   const handleImageUpload: ImageUploadHandler = useCallback((file: File) => {
-    const fakeUrl = URL.createObjectURL(file);
-    setNewEntry((prev) => ({ ...prev, image: fakeUrl }));
+    const reader = new FileReader();
+    reader.onloadend=()=>{
+      const base64Data = reader.result as string;
+      setNewEntry((prev) => ({ ...prev, image: base64Data }));
+    };
+    reader.readAsDataURL(file);
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
