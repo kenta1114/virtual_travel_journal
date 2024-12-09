@@ -8,6 +8,11 @@ interface User {
   email: string;
 }
 
+interface Suggestion {
+  place_id: string;
+  description: string;
+}
+
 export function TravelJournal() {
   const loadSavedEntries = () => {
     if (typeof window !== "undefined") {
@@ -65,19 +70,9 @@ export function TravelJournal() {
   const handleLocationChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     onEntryChange({ ...newEntry, location: value });
-
-    if (value.length > 2) {
-      const fakeSuggestions: Suggestion[] = [ ];
-      setSuggestions(fakeSuggestions);
-    } else {
-      setSuggestions([]);
-    }
+    
+    setSuggestions([]);
   };
-
-  interface Suggestion {
-    place_id: string;
-    description: string;
-  }
 
   const handleSelectLocation = (place: Suggestion) => {
     setNewEntry({ ...newEntry, location: place.description });
