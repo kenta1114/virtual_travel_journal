@@ -39,9 +39,9 @@ function App() {
     setUser(null);
   };
 
-  // const handleLocationSelect = (location:{lat:number; lng:number})=>{
-  //   setSelectedLocation(location);
-  // };
+  const handleLocationSelect = (location:{lat:number; lng:number})=>{
+    setSelectedLocation(location);
+  };
 
   if (!user) {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
