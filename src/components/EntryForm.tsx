@@ -9,7 +9,7 @@ interface EntryFormProps {
     image: string | null;
   };
   editMode: boolean;
-  suggestions: any[];
+  // suggestions: any[];
   onEntryChange: (entry: any) => void;
   onLocationChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSelectLocation: (place: any) => void;
@@ -20,7 +20,7 @@ interface EntryFormProps {
 export function EntryForm({
   newEntry,
   editMode,
-  suggestions,
+  // suggestions,
   onEntryChange,
   onLocationChange,
   onSelectLocation,
