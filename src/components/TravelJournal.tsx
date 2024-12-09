@@ -201,7 +201,7 @@ export function TravelJournal() {
                 editMode={editMode}
                 suggestions={suggestions}
                 onEntryChange={setNewEntry}
-                onLocationChange={handleLocationChange}
+{/*                 onLocationChange={handleLocationChange} */}
                 onSelectLocation={handleSelectLocation}
                 onImageUpload={handleImageUpload}
                 onSubmit={handleSubmit}
