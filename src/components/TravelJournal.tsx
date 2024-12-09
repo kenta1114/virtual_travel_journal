@@ -66,18 +66,18 @@ export function TravelJournal() {
     const value = e.target.value;
     setNewEntry({ ...newEntry, location: value });
 
-    if (value.length > 2) {
-      const fakeSuggestions: Suggestion[] = [ ];
-      setSuggestions(fakeSuggestions);
-    } else {
-      setSuggestions([]);
-    }
-  };
+  //   if (value.length > 2) {
+  //     const fakeSuggestions: Suggestion[] = [ ];
+  //     setSuggestions(fakeSuggestions);
+  //   } else {
+  //     setSuggestions([]);
+  //   }
+  // };
 
-  interface Suggestion {
-    place_id: string;
-    description: string;
-  }
+  // interface Suggestion {
+  //   place_id: string;
+  //   description: string;
+  // }
 
   const handleSelectLocation = (place: Suggestion) => {
     setNewEntry({ ...newEntry, location: place.description });
