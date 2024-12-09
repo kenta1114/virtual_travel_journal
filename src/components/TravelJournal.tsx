@@ -71,12 +71,12 @@ export function TravelJournal() {
     const value = e.target.value;
     onEntryChange({ ...newEntry, location: value });
     
-    setSuggestions([]);
+    // setSuggestions([]);
   };
 
   const handleSelectLocation = (place: Suggestion) => {
     setNewEntry({ ...newEntry, location: place.description });
-    setSuggestions([]);
+    // setSuggestions([]);
   };
 
   interface ImageUploadHandler {
