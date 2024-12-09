@@ -64,7 +64,7 @@ export function TravelJournal() {
 
   const handleLocationChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setNewEntry({ ...newEntry, location: value });
+    onEntryChange({ ...newEntry, location: value });
 
   //   if (value.length > 2) {
   //     const fakeSuggestions: Suggestion[] = [ ];
