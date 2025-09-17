@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, ChangeEvent } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AuthForm } from "./AuthForm";
 import { Header } from "./Header";
 import { EntryForm } from "./EntryForm";
@@ -34,6 +34,46 @@ export function TravelJournal() {
   const [isSignUpPage, setIsSignUpPage] = useState(false);
   const [user, setUser] = useState<User | null>(loadSavedUser);
   const [entries, setEntries] = useState(loadSavedEntries);
+  const [searchParams, setSearchParams] = useState<{ keyword: string; location: string; startDate: string; endDate: string } | null>(null);
+  const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  // 検索API呼び出し
+  const fetchEntries = async (params?: { keyword: string; location: string; startDate: string; endDate: string }) => {
+    try {
+      let url = "http://localhost:5001/api/travel/search";
+      if (params && (params.keyword || params.location || params.startDate || params.endDate)) {
+        const query = new URLSearchParams();
+        if (params.keyword) query.append("keyword", params.keyword);
+        if (params.location) query.append("location", params.location);
+        if (params.startDate) query.append("startDate", params.startDate);
+        if (params.endDate) query.append("endDate", params.endDate);
+        url += "?" + query.toString();
+      } else {
+        // パラメータがない場合は全件取得
+        url = "http://localhost:5001/api/travel";
+      }
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        // imageURL -> image へ変換
+        const converted = data.map((entry: any) => ({
+          ...entry,
+          image: entry.imageURL || null,
+          notes: entry.memo || entry.notes || ""
+        }));
+        setEntries(converted);
+      } else {
+        console.error("API error:", res.status, res.statusText);
+      }
+    } catch (err) {
+      console.error("Fetch error:", err);
+    }
+  };
+  // 検索条件変更時にAPI呼び出し
+  useEffect(() => {
+    if (searchParams) {
+      fetchEntries(searchParams);
+    }
+  }, [searchParams]);
   const [newEntry, setNewEntry] = useState<{
     title: string;
     date: string;
@@ -50,7 +90,7 @@ export function TravelJournal() {
 
   const [editMode, setEditMode] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
-  const [suggestions, setSuggestions] = useState<{ place_id: string; description: string }[]>([]);
+  const [suggestions] = useState<{ place_id: string; description: string }[]>([]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -67,15 +107,12 @@ export function TravelJournal() {
     setUser(userData);
   };
 
-  const handleLocationChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    onEntryChange({ ...newEntry, location: value });
-    
-    // setSuggestions([]);
-  };
+
 
   const handleSelectLocation = (place: Suggestion) => {
     setNewEntry({ ...newEntry, location: place.description });
+    // For now, we'll use mock coordinates. In a real app, you'd get these from the Google Places API
+    setSelectedCoordinates({ lat: 35.6762, lng: 139.6503 }); // Tokyo coordinates as example
     // setSuggestions([]);
   };
 
@@ -92,7 +129,7 @@ export function TravelJournal() {
     reader.readAsDataURL(file);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!newEntry.title || !newEntry.date || !newEntry.location) {
@@ -100,15 +137,73 @@ export function TravelJournal() {
       return;
     }
 
-    if (editMode && editIndex !== null) {
-      const updatedEntries = entries.map((entry: typeof newEntry, index: number) =>
-        index === editIndex ? newEntry : entry
-      );
-      setEntries(updatedEntries);
-    } else {
-      setEntries([...entries, { ...newEntry, id: Date.now() }]);
+    try {
+      const entryData = {
+        title: newEntry.title,
+        date: newEntry.date,
+        location: newEntry.location,
+        memo: newEntry.notes,
+        imageURL: newEntry.image,
+        latitude: selectedCoordinates?.lat || null,
+        longitude: selectedCoordinates?.lng || null,
+      };
+
+      if (editMode && editIndex !== null) {
+        // Update existing entry
+        const updatedEntries = entries.map((entry: typeof newEntry, index: number) =>
+          index === editIndex ? newEntry : entry
+        );
+        setEntries(updatedEntries);
+      } else {
+        // Create new entry
+        // API接続確認
+        console.log('Attempting to connect to API server...');
+        
+        const response = await fetch('http://localhost:5001/api/travel', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(entryData),
+          // タイムアウト設定を追加（オプション）
+        });
+
+        if (!response.ok) {
+          let errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+          try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorMsg;
+            if (errorData.details) errorMsg += `\n${errorData.details}`;
+          } catch (parseError) {
+            console.error('Error parsing error response:', parseError);
+          }
+          alert(`エントリの保存に失敗しました。\n${errorMsg}`);
+          return;
+        }
+
+        const savedEntry = await response.json();
+        console.log('Entry saved:', savedEntry);
+        // Refresh entries list
+        await fetchEntries();
+      }
+      resetForm();
+    } catch (error) {
+      console.error('Error saving entry:', error);
+      
+      // エラーの詳細情報を提供
+      let errorMessage = 'エントリの保存に失敗しました。';
+      
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        errorMessage += '\n\nAPI サーバーに接続できません。以下を確認してください：\n' +
+          '1. バックエンドサーバーが起動しているか (http://localhost:5001)\n' +
+          '2. CORS設定が正しいか\n' +
+          '3. ネットワーク接続が正常か';
+      } else {
+        errorMessage += `\n詳細: ${error instanceof Error ? error.message : String(error)}`;
+      }
+      
+      alert(errorMessage);
     }
-    resetForm();
   };
 
   const resetForm = () => {
@@ -189,14 +284,18 @@ export function TravelJournal() {
           </div>
         ) : (
           <>
-            <Header email={user.email} onLogout={handleLogout} />
+            <Header
+              email={user.email}
+              onLogout={handleLogout}
+              onSearch={params => setSearchParams(params)}
+            />
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <EntryForm
                 newEntry={newEntry}
                 editMode={editMode}
                 suggestions={suggestions}
                 onEntryChange={setNewEntry}
-{/*                 onLocationChange={handleLocationChange} */}
+                onLocationChange={(e) => setNewEntry({ ...newEntry, location: e.target.value })}
                 onSelectLocation={handleSelectLocation}
                 onImageUpload={handleImageUpload}
                 onSubmit={handleSubmit}

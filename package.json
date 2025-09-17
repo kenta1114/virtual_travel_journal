@@ -4,17 +4,27 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "concurrently \"vite\" \"nodemon server.js\"",
+    "dev": "vite",
     "build": "tsc && vite build",
+    "start": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "server": "node server.js",
+    "dev:full": "concurrently \"npm run server\" \"npm run dev\"",
+    "server:dev": "nodemon server.js"
   },
   "dependencies": {
+    "@react-google-maps/api": "^2.20.7",
+    "bcryptjs": "^3.0.2",
+    "body-parser": "^2.2.0",
     "concurrently": "^9.1.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
     "lucide-react": "^0.344.0",
+    "pg": "^8.16.3",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "sequelize": "^6.37.7",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@types/node": "^22.9.4",
@@ -27,6 +37,7 @@
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "nodemon": "^3.1.10",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AuthPage } from "./components/AuthPage";
-import { JournalPage } from "./components/journal/JournalPage";
+import { TravelJournal } from "./components/TravelJournal";
 import { MapView } from "./components/MapView";
 import { RouteSaver } from "./components/RouteSaver";
 import { NearbySuggestions } from "./components/NearbySuggestions";
@@ -11,7 +11,7 @@ function App() {
   const [savedRoute, setSavedRoute] = useState<
     { lat: number; lng: number; title: string }[]
   >([]);
-  const [selectedLocation] = useState<{ lat: number; lng: number } | null>(
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(
     null
   );
 
@@ -49,7 +49,7 @@ function App() {
 
   return (
     <div className="app-container">
-      <JournalPage user={user} onLogout={handleLogout} />
+      <TravelJournal />
 
       {/*地図の表示 */}
       <MapView savedRoute={savedRoute} />
