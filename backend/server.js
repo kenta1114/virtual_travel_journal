@@ -11,6 +11,15 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' })); // 画像データ対応のため50MBに増加
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
+// MIMEタイプの設定
+app.use(express.static('public', {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.js')) {
+      res.set('Content-Type', 'application/javascript');
+    }
+  }
+}));
+
 // Import models and sequelize instance
 const { sequelize, User, Entry, Tag, Comment } = require("./models/index");
 

@@ -1,66 +1,10 @@
-import { useState, useEffect } from "react";
-import { AuthPage } from "./components/AuthPage";
-import { TravelJournal } from "./components/TravelJournal";
-import { MapView } from "./components/MapView";
-import { RouteSaver } from "./components/RouteSaver";
-import { NearbySuggestions } from "./components/NearbySuggestions";
-import { User } from "./types";
+import { TravelJournal } from './components/TravelJournal';
+
 
 function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [savedRoute, setSavedRoute] = useState<
-    { lat: number; lng: number; title: string }[]
-  >([]);
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(
-    null
-  );
-
-  useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-  }, []);
-
-
-  const handleSaveRoute = (
-    route: { lat: number; lng: number; title: string }[]
-  ) => {
-    setSavedRoute(route);
-  };
-
-  const handleAuthSuccess = (userData: User) => {
-    localStorage.setItem("user", JSON.stringify(userData));
-    setUser(userData);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    setUser(null);
-  };
-
-  const handleLocationSelect = (location:{lat:number; lng:number})=>{
-    setSelectedLocation(location);
-  };
-
-  if (!user) {
-    return <AuthPage onAuthSuccess={handleAuthSuccess} />;
-  }
-
-  return (
-    <div className="app-container">
-      <TravelJournal />
-
-      {/*地図の表示 */}
-      <MapView savedRoute={savedRoute} />
-
-      {/*選択した場所のルート保存 */}
-      {selectedLocation && <RouteSaver onSaveRoute={handleSaveRoute} />}
-
-      {/*近隣スポット提案 */}
-      {selectedLocation && <NearbySuggestions location={selectedLocation} />}
-    </div>
-  );
+  return <TravelJournal />;
 }
 
 export default App;
+
+<script type="module" src="./src/App.js"></script>
