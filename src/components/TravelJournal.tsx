@@ -39,30 +39,29 @@ export function TravelJournal() {
   // 検索API呼び出し
   const fetchEntries = async (params?: { keyword: string; location: string; startDate: string; endDate: string }) => {
     try {
-      let url = "http://localhost:5001/api/travel/search";
+      // Vercelの環境に応じてAPIのURLを切り替え
+      const baseURL = process.env.NODE_ENV === 'production' 
+        ? window.location.origin 
+        : "http://localhost:5001";
+        
+      let url = `${baseURL}/api/travel`;
+      
       if (params && (params.keyword || params.location || params.startDate || params.endDate)) {
-        const query = new URLSearchParams();
-        if (params.keyword) query.append("keyword", params.keyword);
-        if (params.location) query.append("location", params.location);
-        if (params.startDate) query.append("startDate", params.startDate);
-        if (params.endDate) query.append("endDate", params.endDate);
-        url += "?" + query.toString();
-      } else {
-        // パラメータがない場合は全件取得
-        url = "http://localhost:5001/api/travel";
+        url = `${baseURL}/api/travel/search`;
+        const searchParams = new URLSearchParams();
+        if (params.keyword) searchParams.append('keyword', params.keyword);
+        if (params.location) searchParams.append('location', params.location);
+        if (params.startDate) searchParams.append('startDate', params.startDate);
+        if (params.endDate) searchParams.append('endDate', params.endDate);
+        url += `?${searchParams.toString()}`;
       }
+      
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        // imageURL -> image へ変換
-        const converted = data.map((entry: any) => ({
-          ...entry,
-          image: entry.imageURL || null,
-          notes: entry.memo || entry.notes || ""
-        }));
-        setEntries(converted);
+        setEntries(data);
       } else {
-        console.error("API error:", res.status, res.statusText);
+        console.error("Failed to fetch entries:", res.statusText);
       }
     } catch (err) {
       console.error("Fetch error:", err);
@@ -156,53 +155,30 @@ export function TravelJournal() {
         setEntries(updatedEntries);
       } else {
         // Create new entry
-        // API接続確認
-        console.log('Attempting to connect to API server...');
-        
-        const response = await fetch('http://localhost:5001/api/travel', {
+        const baseURL = process.env.NODE_ENV === 'production' 
+          ? window.location.origin 
+          : "http://localhost:5001";
+          
+        const response = await fetch(`${baseURL}/api/travel`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(entryData),
-          // タイムアウト設定を追加（オプション）
         });
 
         if (!response.ok) {
-          let errorMsg = `HTTP ${response.status}: ${response.statusText}`;
-          try {
-            const errorData = await response.json();
-            errorMsg = errorData.error || errorMsg;
-            if (errorData.details) errorMsg += `\n${errorData.details}`;
-          } catch (parseError) {
-            console.error('Error parsing error response:', parseError);
-          }
-          alert(`エントリの保存に失敗しました。\n${errorMsg}`);
-          return;
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
         const savedEntry = await response.json();
         console.log('Entry saved:', savedEntry);
-        // Refresh entries list
         await fetchEntries();
       }
       resetForm();
     } catch (error) {
       console.error('Error saving entry:', error);
-      
-      // エラーの詳細情報を提供
-      let errorMessage = 'エントリの保存に失敗しました。';
-      
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        errorMessage += '\n\nAPI サーバーに接続できません。以下を確認してください：\n' +
-          '1. バックエンドサーバーが起動しているか (http://localhost:5001)\n' +
-          '2. CORS設定が正しいか\n' +
-          '3. ネットワーク接続が正常か';
-      } else {
-        errorMessage += `\n詳細: ${error instanceof Error ? error.message : String(error)}`;
-      }
-      
-      alert(errorMessage);
+      alert(`エントリの保存に失敗しました。\n詳細: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
