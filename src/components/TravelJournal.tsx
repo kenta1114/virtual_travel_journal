@@ -116,37 +116,72 @@ export function TravelJournal() {
   );
 
   useEffect(() => {
+    // Persist entries to localStorage with size-safeguards.
+    persistToLocalStorage(entries);
+  }, [entries]);
+
+  // Helper: persist entries safely with size limits and truncation.
+  const persistToLocalStorage = (list: any[]) => {
     if (typeof window === "undefined") return;
 
-    const saveSanitized = (list: any[]) => {
-      // remove image data before persisting
-      return list.map(({ image, ...rest }) => ({ ...rest, image: null }));
+    const MAX_BYTES = 1000 * 1000; // 1MB target
+
+    const minimalize = (items: any[], noteLen = 2000) =>
+      items.map(({ image, notes, ...rest }: any) => ({
+        ...rest,
+        notes: typeof notes === "string" ? notes.slice(0, noteLen) : notes,
+        image: null,
+      }));
+
+    const tryStringSize = (obj: any) => {
+      try {
+        const s = JSON.stringify(obj);
+        return new Blob([s]).size;
+      } catch {
+        return Infinity;
+      }
     };
 
     try {
-      // Always persist a sanitized version (no base64 images)
-      const sanitized = saveSanitized(entries);
-      // keep only the most recent 50 entries to avoid quota issues
-      const toPersist = sanitized.slice(-50);
-      localStorage.setItem("journalEntries", JSON.stringify(toPersist));
-    } catch (err: any) {
-      console.warn(
-        "localStorage save failed even after sanitizing; attempting trim",
-        err,
-      );
-      try {
-        // try a smaller slice
-        const sanitized = saveSanitized(entries);
-        const toPersist = sanitized.slice(-10);
-        localStorage.setItem("journalEntries", JSON.stringify(toPersist));
-      } catch (err2: any) {
-        console.error(
-          "Unable to save journalEntries to localStorage after trimming:",
-          err2,
+      // Start with last 50 entries and reasonable note length
+      let count = Math.min(50, list.length || 0);
+      let noteLen = 2000;
+      let candidate = minimalize(list.slice(-count), noteLen);
+      let size = tryStringSize(candidate);
+
+      // Reduce note length until it fits or until minimal note length
+      while (size > MAX_BYTES && noteLen >= 100) {
+        noteLen = Math.floor(noteLen / 2);
+        candidate = minimalize(list.slice(-count), noteLen);
+        size = tryStringSize(candidate);
+      }
+
+      // If still too large, reduce count
+      while (size > MAX_BYTES && count > 1) {
+        count = Math.max(1, Math.floor(count / 2));
+        candidate = minimalize(list.slice(-count), noteLen);
+        size = tryStringSize(candidate);
+      }
+
+      if (size === Infinity || size > MAX_BYTES) {
+        // As a last resort, persist an empty list to avoid repeated quota errors
+        localStorage.setItem("journalEntries", JSON.stringify([]));
+        console.warn(
+          "persistToLocalStorage: Could not fit entries in localStorage; saved empty list",
         );
+      } else {
+        localStorage.setItem("journalEntries", JSON.stringify(candidate));
+      }
+    } catch (err) {
+      console.error("persistToLocalStorage failed:", err);
+      try {
+        localStorage.setItem("journalEntries", JSON.stringify([]));
+      } catch (e) {
+        // give up
+        console.error("persistToLocalStorage final fallback failed:", e);
       }
     }
-  }, [entries]);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -269,7 +304,7 @@ export function TravelJournal() {
     setEntries(updatedEntries);
 
     if (typeof window !== "undefined") {
-      localStorage.setItem("journalEntries", JSON.stringify(updatedEntries));
+      persistToLocalStorage(updatedEntries);
     }
   };
 
