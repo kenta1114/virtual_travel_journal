@@ -116,70 +116,34 @@ export function TravelJournal() {
   );
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window === "undefined") return;
+
+    const saveSanitized = (list: any[]) => {
+      // remove image data before persisting
+      return list.map(({ image, ...rest }) => ({ ...rest, image: null }));
+    };
+
+    try {
+      // Always persist a sanitized version (no base64 images)
+      const sanitized = saveSanitized(entries);
+      // keep only the most recent 50 entries to avoid quota issues
+      const toPersist = sanitized.slice(-50);
+      localStorage.setItem("journalEntries", JSON.stringify(toPersist));
+    } catch (err: any) {
+      console.warn(
+        "localStorage save failed even after sanitizing; attempting trim",
+        err,
+      );
       try {
-        // Try saving full entries first
-        localStorage.setItem("journalEntries", JSON.stringify(entries));
-      } catch (err: any) {
-        // If quota exceeded (usually due to large base64 images), try storing without images
-        const isQuotaError =
-          err &&
-          (err.name === "QuotaExceededError" ||
-            err.name === "NS_ERROR_DOM_QUOTA_REACHED");
-        if (isQuotaError) {
-          console.warn(
-            "localStorage quota exceeded when saving journalEntries — saving without images",
-          );
-          try {
-            const withoutImages = entries.map((entry: any) => {
-              const { image, ...rest } = entry;
-              return { ...rest, image: null };
-            });
-            localStorage.setItem(
-              "journalEntries",
-              JSON.stringify(withoutImages),
-            );
-          } catch (err2: any) {
-            console.warn(
-              "Still over quota after removing images — trimming entries to fit",
-            );
-            // As a last resort, save only the most recent N entries (without images)
-            let N = 50;
-            let trimmed = entries.map((entry: any) => ({
-              ...entry,
-              image: null,
-            }));
-            while (trimmed.length > 0) {
-              try {
-                const toSave = trimmed.slice(-N);
-                localStorage.setItem("journalEntries", JSON.stringify(toSave));
-                break;
-              } catch (err3) {
-                N = Math.max(1, Math.floor(N / 2));
-                if (N === 1 && trimmed.length > 1) {
-                  // keep only the last entry
-                  trimmed = trimmed.slice(-1);
-                }
-                if (N === 1 && trimmed.length === 1) {
-                  try {
-                    localStorage.setItem(
-                      "journalEntries",
-                      JSON.stringify(trimmed),
-                    );
-                  } catch (finalErr) {
-                    console.error(
-                      "Unable to persist journalEntries to localStorage:",
-                      finalErr,
-                    );
-                  }
-                  break;
-                }
-              }
-            }
-          }
-        } else {
-          console.error("Error saving journalEntries to localStorage:", err);
-        }
+        // try a smaller slice
+        const sanitized = saveSanitized(entries);
+        const toPersist = sanitized.slice(-10);
+        localStorage.setItem("journalEntries", JSON.stringify(toPersist));
+      } catch (err2: any) {
+        console.error(
+          "Unable to save journalEntries to localStorage after trimming:",
+          err2,
+        );
       }
     }
   }, [entries]);
