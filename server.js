@@ -188,6 +188,17 @@ app.get("/api/travel/search", (req, res) => {
 });
 
 // エントリ削除
+app.delete("/api/travel", (req, res) => {
+  db.run("DELETE FROM travel_entries", [], function (err) {
+    if (err) {
+      console.error("Error deleting all entries:", err);
+      res.status(500).json({ error: "Error deleting entries" });
+    } else {
+      res.json({ message: "All entries deleted successfully", deleted: this.changes });
+    }
+  });
+});
+
 app.delete("/api/travel/:id", (req, res) => {
   const { id } = req.params;
 

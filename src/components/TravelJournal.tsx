@@ -210,13 +210,16 @@ export function TravelJournal() {
           throw new Error("編集対象のエントリが見つかりませんでした");
         }
 
-        const response = await fetch(`${apiBaseUrl}/api/travel/${targetEntry.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
+        const response = await fetch(
+          `${apiBaseUrl}/api/travel/${targetEntry.id}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(entryData),
           },
-          body: JSON.stringify(entryData),
-        });
+        );
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -275,10 +278,10 @@ export function TravelJournal() {
       title: entry.title ?? "",
       date: entry.date ?? "",
       location: entry.location ?? "",
-        notes: entry.notes ?? "",
-        image: entry.image ?? null,
+      notes: entry.notes ?? "",
+      image: entry.image ?? null,
     });
-      setSelectedCoordinates(null);
+    setSelectedCoordinates(null);
   };
 
   const handleDeleteEntry = async (index: number) => {
@@ -308,6 +311,39 @@ export function TravelJournal() {
           `エントリの削除に失敗しました。\n詳細: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
+    }
+  };
+
+  const handleClearAllEntries = async () => {
+    if (entries.length === 0) {
+      alert("削除できるエントリがありません。");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `保存されている ${entries.length} 件のエントリをすべて削除しますか？`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/travel`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      resetForm();
+      setEntries([]);
+    } catch (error) {
+      console.error("Error clearing all entries:", error);
+      alert(
+        `すべてのエントリの削除に失敗しました。\n詳細: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   };
 
@@ -361,6 +397,16 @@ export function TravelJournal() {
               onSearch={(params) => setSearchParams(params)}
             />
             <div className="bg-white rounded-2xl shadow-xl p-8">
+              <div className="mb-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleClearAllEntries}
+                  className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={entries.length === 0 || isSubmitting}
+                >
+                  すべて削除
+                </button>
+              </div>
               <EntryForm
                 newEntry={newEntry}
                 editMode={editMode}
