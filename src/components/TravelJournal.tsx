@@ -63,7 +63,9 @@ const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
   return response.blob();
 };
 
-const uploadImageToStorage = async (imageDataUrl: string): Promise<string | null> => {
+const uploadImageToStorage = async (
+  imageDataUrl: string,
+): Promise<string | null> => {
   // Configure VITE_IMAGE_UPLOAD_URL (+ VITE_IMAGE_UPLOAD_PRESET for Cloudinary unsigned uploads)
   // to enable URL-based image storage. Without it, we skip image upload to avoid 413.
   if (!IMAGE_UPLOAD_URL) {
@@ -319,15 +321,42 @@ export function TravelJournal() {
 
       let uploadedImageUrl: string | null = null;
       if (newEntry.image) {
-        if (newEntry.image.startsWith("http://") || newEntry.image.startsWith("https://")) {
+        if (
+          newEntry.image.startsWith("http://") ||
+          newEntry.image.startsWith("https://")
+        ) {
           uploadedImageUrl = newEntry.image;
         } else {
           try {
-            uploadedImageUrl = await uploadImageToStorage(newEntry.image);
-            if (!uploadedImageUrl) {
-              console.warn(
-                "Image upload is not configured. Saving entry without image URL to avoid 413.",
-              );
+            if (IMAGE_UPLOAD_URL) {
+              uploadedImageUrl = await uploadImageToStorage(newEntry.image);
+              if (!uploadedImageUrl) {
+                console.warn(
+                  "Image upload returned no URL. Entry will be saved without image.",
+                );
+              }
+            } else {
+              // No external upload configured — try local server upload shim
+              try {
+                const resp = await fetch(`${apiBaseUrl}/api/upload-image`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ dataUrl: newEntry.image }),
+                });
+
+                if (!resp.ok) {
+                  console.warn(
+                    "Local image upload failed, saving entry without image",
+                    resp.status,
+                  );
+                } else {
+                  const json = await resp.json();
+                  uploadedImageUrl = json.url || json.imageURL || null;
+                }
+              } catch (localUploadErr) {
+                console.error("Local image upload failed:", localUploadErr);
+                // fall back to saving without image
+              }
             }
           } catch (uploadError) {
             console.error("Image upload failed:", uploadError);

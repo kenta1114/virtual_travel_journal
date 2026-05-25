@@ -3,6 +3,8 @@ import cors from "cors";
 import sqlite3 from "sqlite3";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import fs from "fs";
+import path from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -13,6 +15,13 @@ const PORT = 5001;
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
+
+// Ensure uploads directory exists and serve it statically
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsDir));
 
 // データベース初期化
 const db = new sqlite3.Database("./travel_journal.db", (err) => {
@@ -194,7 +203,10 @@ app.delete("/api/travel", (req, res) => {
       console.error("Error deleting all entries:", err);
       res.status(500).json({ error: "Error deleting entries" });
     } else {
-      res.json({ message: "All entries deleted successfully", deleted: this.changes });
+      res.json({
+        message: "All entries deleted successfully",
+        deleted: this.changes,
+      });
     }
   });
 });
@@ -211,6 +223,39 @@ app.delete("/api/travel/:id", (req, res) => {
     } else {
       res.json({ message: "Entry deleted successfully" });
     }
+  });
+});
+
+// Local image upload endpoint for development: accepts a data URL and writes
+// it to the local `uploads/` directory, returning a URL that the frontend
+// can use to display the image.
+app.post("/api/upload-image", (req, res) => {
+  const { dataUrl } = req.body;
+  if (!dataUrl || typeof dataUrl !== "string") {
+    return res.status(400).json({ error: "Missing dataUrl" });
+  }
+
+  const matches = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (!matches) {
+    return res.status(400).json({ error: "Invalid dataUrl" });
+  }
+
+  const mime = matches[1];
+  const base64Data = matches[2];
+  const ext = mime.split("/")[1] === "jpeg" ? "jpg" : mime.split("/")[1];
+  const filename = `journal-${Date.now()}.${ext}`;
+  const filePath = path.join(uploadsDir, filename);
+
+  const buffer = Buffer.from(base64Data, "base64");
+
+  fs.writeFile(filePath, buffer, (err) => {
+    if (err) {
+      console.error("Error writing uploaded image:", err);
+      return res.status(500).json({ error: "Failed to save image" });
+    }
+
+    const publicUrl = `${req.protocol}://${req.get("host")}/uploads/${filename}`;
+    res.status(201).json({ url: publicUrl });
   });
 });
 
