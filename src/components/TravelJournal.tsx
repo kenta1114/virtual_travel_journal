@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AuthForm } from "./AuthForm";
 import { Header } from "./Header";
 import { EntryForm } from "./EntryForm";
@@ -111,6 +111,7 @@ export function TravelJournal() {
   const [editMode, setEditMode] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
   const [suggestions] = useState<{ place_id: string; description: string }[]>(
     [],
   );
@@ -219,10 +220,12 @@ export function TravelJournal() {
       alert("タイトル、日付、場所は必須項目です。");
       return;
     }
-    if (isSubmitting) {
+    if (isSubmitting || submitLockRef.current) {
       console.debug("handleSubmit: already submitting, ignoring duplicate");
       return;
     }
+
+    submitLockRef.current = true;
 
     try {
       console.debug("handleSubmit: starting submit for", newEntry.title);
@@ -267,13 +270,14 @@ export function TravelJournal() {
         await fetchEntries();
       }
       resetForm();
-      setIsSubmitting(false);
     } catch (error) {
       console.error("Error saving entry:", error);
       alert(
         `エントリの保存に失敗しました。\n詳細: ${error instanceof Error ? error.message : String(error)}`,
       );
+    } finally {
       setIsSubmitting(false);
+      submitLockRef.current = false;
     }
   };
 
