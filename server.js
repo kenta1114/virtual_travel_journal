@@ -51,6 +51,7 @@ app.get('/api/travel', (req, res) => {
 // エントリ作成
 app.post('/api/travel', (req, res) => {
   const { title, date, location, memo, imageURL, latitude, longitude } = req.body;
+  console.log(`POST /api/travel received: title=${title} date=${date} location=${location} at ${new Date().toISOString()}`);
   
   if (!title || !date || !location) {
     return res.status(400).json({ error: 'Title, date, and location are required' });
