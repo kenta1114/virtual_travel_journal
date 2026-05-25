@@ -125,26 +125,39 @@ app.delete('/api/travel/:id', (req, res) => {
     if (err) {
       console.error('Error deleting entry:', err);
       res.status(500).json({ error: 'Error deleting entry' });
-    } else if (this.changes === 0) {
-      res.status(404).json({ error: 'Entry not found' });
-    } else {
-      res.json({ message: 'Entry deleted successfully' });
-    }
-  });
-});
-
-// サーバー起動
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
-
-// Graceful shutdown
-process.on('SIGINT', () => {
-  db.close((err) => {
+  // Prevent rapid duplicate submissions: check for recent identical entry
+  const duplicateCheckSql = `SELECT * FROM travel_entries WHERE title = ? AND date = ? AND location = ? AND datetime(created_at) >= datetime('now','-10 seconds') ORDER BY created_at DESC LIMIT 1`;
+  db.get(duplicateCheckSql, [title, date, location], (err, row) => {
     if (err) {
-      console.error(err.message);
+      console.error('Error checking duplicate entry:', err);
+      // proceed with insertion to avoid false negatives
     }
-    console.log('Database connection closed');
-    process.exit(0);
+    if (row) {
+      // Found a recent duplicate - return existing entry instead of inserting
+      return res.status(200).json(row);
+    }
+
+    // No recent duplicate - proceed to insert
+    const sql = `INSERT INTO travel_entries (title, date, location, memo, imageURL, latitude, longitude) 
+               VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    db.run(sql, [title, date, location, memo, imageURL, latitude, longitude], function(err) {
+      if (err) {
+        console.error('Error creating entry:', err);
+        res.status(500).json({ error: 'Error saving entry' });
+      } else {
+        res.status(201).json({
+          id: this.lastID,
+          title,
+          date,
+          location,
+          memo,
+          imageURL,
+          latitude,
+          longitude
+        });
+      }
+    });
+  });
+  
   });
 });
