@@ -39,6 +39,12 @@ const MAX_UPLOAD_FILE_SIZE_BYTES = 8 * 1024 * 1024; // 8MB input limit
 const MAX_OUTPUT_IMAGE_SIZE_BYTES = 700 * 1024; // approx payload-safe target
 const IMAGE_MAX_WIDTH = 1280;
 const IMAGE_MAX_HEIGHT = 1280;
+const IMAGE_UPLOAD_URL = import.meta.env.VITE_IMAGE_UPLOAD_URL as
+  | string
+  | undefined;
+const IMAGE_UPLOAD_PRESET = import.meta.env.VITE_IMAGE_UPLOAD_PRESET as
+  | string
+  | undefined;
 
 const dataUrlSizeBytes = (dataUrl: string): number => {
   const base64 = dataUrl.split(",")[1] ?? "";
@@ -52,6 +58,48 @@ const canvasToDataUrl = (
   return canvas.toDataURL("image/jpeg", quality);
 };
 
+const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
+  const response = await fetch(dataUrl);
+  return response.blob();
+};
+
+const uploadImageToStorage = async (imageDataUrl: string): Promise<string | null> => {
+  // Configure VITE_IMAGE_UPLOAD_URL (+ VITE_IMAGE_UPLOAD_PRESET for Cloudinary unsigned uploads)
+  // to enable URL-based image storage. Without it, we skip image upload to avoid 413.
+  if (!IMAGE_UPLOAD_URL) {
+    return null;
+  }
+
+  const blob = await dataUrlToBlob(imageDataUrl);
+  const extension = blob.type.includes("png") ? "png" : "jpg";
+  const file = new File([blob], `journal-${Date.now()}.${extension}`, {
+    type: blob.type || "image/jpeg",
+  });
+
+  const formData = new FormData();
+  formData.append("file", file);
+  if (IMAGE_UPLOAD_PRESET) {
+    formData.append("upload_preset", IMAGE_UPLOAD_PRESET);
+  }
+
+  const response = await fetch(IMAGE_UPLOAD_URL, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Image upload failed: HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const uploadedUrl = payload.secure_url || payload.url;
+  if (!uploadedUrl) {
+    throw new Error("Image upload response did not contain an URL");
+  }
+
+  return uploadedUrl;
+};
+
 const compressImageFile = async (
   file: File,
   quality: number,
@@ -59,11 +107,7 @@ const compressImageFile = async (
   maxHeight: number,
 ): Promise<string> => {
   const bitmap = await createImageBitmap(file);
-  const ratio = Math.min(
-    maxWidth / bitmap.width,
-    maxHeight / bitmap.height,
-    1,
-  );
+  const ratio = Math.min(maxWidth / bitmap.width, maxHeight / bitmap.height, 1);
 
   const width = Math.max(1, Math.round(bitmap.width * ratio));
   const height = Math.max(1, Math.round(bitmap.height * ratio));
@@ -215,42 +259,45 @@ export function TravelJournal() {
     (file: File): Promise<void>;
   }
 
-  const handleImageUpload: ImageUploadHandler = useCallback(async (file: File) => {
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      alert("JPEG / PNG / WebP の画像のみ対応しています。");
-      return;
-    }
-
-    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
-      alert("画像サイズが大きすぎます。8MB以下の画像を選択してください。");
-      return;
-    }
-
-    try {
-      let compressedDataUrl = await compressImageFile(
-        file,
-        0.78,
-        IMAGE_MAX_WIDTH,
-        IMAGE_MAX_HEIGHT,
-      );
-
-      if (dataUrlSizeBytes(compressedDataUrl) > MAX_OUTPUT_IMAGE_SIZE_BYTES) {
-        compressedDataUrl = await compressImageFile(file, 0.62, 960, 960);
-      }
-
-      if (dataUrlSizeBytes(compressedDataUrl) > MAX_OUTPUT_IMAGE_SIZE_BYTES) {
-        alert(
-          "画像を圧縮しても送信サイズ上限を超えています。より小さい画像を選択してください。",
-        );
+  const handleImageUpload: ImageUploadHandler = useCallback(
+    async (file: File) => {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        alert("JPEG / PNG / WebP の画像のみ対応しています。");
         return;
       }
 
-      setNewEntry((prev) => ({ ...prev, image: compressedDataUrl }));
-    } catch (error) {
-      console.error("Image compression failed:", error);
-      alert("画像の処理に失敗しました。別の画像をお試しください。");
-    }
-  }, []);
+      if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+        alert("画像サイズが大きすぎます。8MB以下の画像を選択してください。");
+        return;
+      }
+
+      try {
+        let compressedDataUrl = await compressImageFile(
+          file,
+          0.78,
+          IMAGE_MAX_WIDTH,
+          IMAGE_MAX_HEIGHT,
+        );
+
+        if (dataUrlSizeBytes(compressedDataUrl) > MAX_OUTPUT_IMAGE_SIZE_BYTES) {
+          compressedDataUrl = await compressImageFile(file, 0.62, 960, 960);
+        }
+
+        if (dataUrlSizeBytes(compressedDataUrl) > MAX_OUTPUT_IMAGE_SIZE_BYTES) {
+          alert(
+            "画像を圧縮しても送信サイズ上限を超えています。より小さい画像を選択してください。",
+          );
+          return;
+        }
+
+        setNewEntry((prev) => ({ ...prev, image: compressedDataUrl }));
+      } catch (error) {
+        console.error("Image compression failed:", error);
+        alert("画像の処理に失敗しました。別の画像をお試しください。");
+      }
+    },
+    [],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,12 +316,35 @@ export function TravelJournal() {
     try {
       console.debug("handleSubmit: starting submit for", newEntry.title);
       setIsSubmitting(true);
+
+      let uploadedImageUrl: string | null = null;
+      if (newEntry.image) {
+        if (newEntry.image.startsWith("http://") || newEntry.image.startsWith("https://")) {
+          uploadedImageUrl = newEntry.image;
+        } else {
+          try {
+            uploadedImageUrl = await uploadImageToStorage(newEntry.image);
+            if (!uploadedImageUrl) {
+              console.warn(
+                "Image upload is not configured. Saving entry without image URL to avoid 413.",
+              );
+            }
+          } catch (uploadError) {
+            console.error("Image upload failed:", uploadError);
+            alert(
+              "画像アップロードに失敗しました。画像なしで保存する場合はそのまま再投稿してください。",
+            );
+            return;
+          }
+        }
+      }
+
       const entryData = {
         title: newEntry.title,
         date: newEntry.date,
         location: newEntry.location,
         memo: newEntry.notes,
-        imageURL: newEntry.image,
+        imageURL: uploadedImageUrl,
         latitude: selectedCoordinates?.lat || null,
         longitude: selectedCoordinates?.lng || null,
       };
