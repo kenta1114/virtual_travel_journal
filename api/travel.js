@@ -1,25 +1,5 @@
-let mockEntries = [
-  {
-    id: 1,
-    title: "東京旅行",
-    date: "2024-01-15",
-    location: "東京都",
-    memo: "スカイツリーを見学しました",
-    imageURL: null,
-    latitude: 35.6762,
-    longitude: 139.6503,
-  },
-  {
-    id: 2,
-    title: "大阪グルメツアー",
-    date: "2024-02-10",
-    location: "大阪府",
-    memo: "たこ焼きとお好み焼きを食べました",
-    imageURL: null,
-    latitude: 34.6937,
-    longitude: 135.5023,
-  },
-];
+
+let mockEntries = [];
 
 export default async function handler(req, res) {
   // CORS設定
