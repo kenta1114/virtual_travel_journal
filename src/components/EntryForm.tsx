@@ -15,6 +15,7 @@ interface EntryFormProps {
   onSelectLocation: (place: any) => void;
   onImageUpload: (file: File) => void;
   onSubmit: (e: React.FormEvent) => void;
+  isSubmitting?: boolean;
 }
 
 export function EntryForm({
@@ -26,6 +27,7 @@ export function EntryForm({
   onSelectLocation,
   onImageUpload,
   onSubmit,
+  isSubmitting,
 }: EntryFormProps) {
   return (
     <form onSubmit={onSubmit} className="space-y-6">
@@ -99,9 +101,10 @@ export function EntryForm({
       />
       <button
         type="submit"
-        className="w-full md:w-auto px-8 py-3 bg-[#2c5f2d] text-white rounded-lg hover:bg-[#234a24] transition-colors flex items-center justify-center gap-2"
+        disabled={isSubmitting}
+        className={`w-full md:w-auto px-8 py-3 rounded-lg flex items-center justify-center gap-2 ${isSubmitting ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-[#2c5f2d] text-white hover:bg-[#234a24]'}`}
       >
-        {editMode ? "更新" : "追加"}
+        {isSubmitting ? '送信中…' : editMode ? '更新' : '追加'}
       </button>
     </form>
   );

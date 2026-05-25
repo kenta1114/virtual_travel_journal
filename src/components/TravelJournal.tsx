@@ -15,7 +15,8 @@ interface Suggestion {
 
 export function TravelJournal() {
   const apiBaseUrl =
-    typeof window !== "undefined" && (import.meta.env.DEV || window.location.hostname === "localhost")
+    typeof window !== "undefined" &&
+    (import.meta.env.DEV || window.location.hostname === "localhost")
       ? "http://localhost:5001"
       : "";
 
@@ -109,6 +110,7 @@ export function TravelJournal() {
 
   const [editMode, setEditMode] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [suggestions] = useState<{ place_id: string; description: string }[]>(
     [],
   );
@@ -176,6 +178,7 @@ export function TravelJournal() {
         setEntries(updatedEntries);
       } else {
         // Create new entry
+        setIsSubmitting(true);
         const response = await fetch(`${apiBaseUrl}/api/travel`, {
           method: "POST",
           headers: {
@@ -193,11 +196,13 @@ export function TravelJournal() {
         await fetchEntries();
       }
       resetForm();
+      setIsSubmitting(false);
     } catch (error) {
       console.error("Error saving entry:", error);
       alert(
         `エントリの保存に失敗しました。\n詳細: ${error instanceof Error ? error.message : String(error)}`,
       );
+      setIsSubmitting(false);
     }
   };
 
@@ -300,6 +305,7 @@ export function TravelJournal() {
                 onSelectLocation={handleSelectLocation}
                 onImageUpload={handleImageUpload}
                 onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
               />
               <EntryList
                 entries={entries}
