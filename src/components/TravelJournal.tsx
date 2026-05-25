@@ -157,8 +157,14 @@ export function TravelJournal() {
       alert("タイトル、日付、場所は必須項目です。");
       return;
     }
+    if (isSubmitting) {
+      console.debug('handleSubmit: already submitting, ignoring duplicate');
+      return;
+    }
 
     try {
+      console.debug('handleSubmit: starting submit for', newEntry.title);
+      setIsSubmitting(true);
       const entryData = {
         title: newEntry.title,
         date: newEntry.date,
@@ -178,7 +184,7 @@ export function TravelJournal() {
         setEntries(updatedEntries);
       } else {
         // Create new entry
-        setIsSubmitting(true);
+        console.debug('handleSubmit: sending POST to', `${apiBaseUrl}/api/travel`);
         const response = await fetch(`${apiBaseUrl}/api/travel`, {
           method: "POST",
           headers: {
