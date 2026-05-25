@@ -1,17 +1,4 @@
-export default async function handler(req, res) {
-  // CORS設定
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  // 仮のデータ（実際のアプリではデータベースから取得）
-  const mockEntries = [
+let mockEntries = [
     {
       id: 1,
       title: "東京旅行",
@@ -33,6 +20,18 @@ export default async function handler(req, res) {
       longitude: 135.5023
     }
   ];
+
+export default async function handler(req, res) {
+  // CORS設定
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
 
   try {
     if (req.method === 'GET') {
@@ -75,6 +74,21 @@ export default async function handler(req, res) {
       };
       
       res.status(201).json(newEntry);
+    } else if (req.method === 'PUT') {
+      const id = Number(req.query.id || req.body.id);
+      const nextEntry = {
+        id,
+        ...req.body,
+        created_at: new Date().toISOString()
+      };
+
+      mockEntries = mockEntries.map((entry) => (entry.id === id ? nextEntry : entry));
+
+      res.status(200).json(nextEntry);
+    } else if (req.method === 'DELETE') {
+      const id = Number(req.query.id || req.body.id);
+      mockEntries = mockEntries.filter((entry) => entry.id !== id);
+      res.status(200).json({ message: 'Entry deleted successfully' });
     } else {
       res.status(405).json({ error: 'Method not allowed' });
     }

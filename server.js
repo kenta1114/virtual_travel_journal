@@ -101,6 +101,53 @@ app.post("/api/travel", (req, res) => {
   });
 });
 
+// エントリ更新
+app.put("/api/travel/:id", (req, res) => {
+  const { id } = req.params;
+  const { title, date, location, memo, imageURL, latitude, longitude } =
+    req.body;
+
+  if (!title || !date || !location) {
+    return res
+      .status(400)
+      .json({ error: "Title, date, and location are required" });
+  }
+
+  const sql = `UPDATE travel_entries
+               SET title = ?, date = ?, location = ?, memo = ?, imageURL = ?, latitude = ?, longitude = ?
+               WHERE id = ?`;
+
+  db.run(
+    sql,
+    [title, date, location, memo, imageURL, latitude, longitude, id],
+    function (err) {
+      if (err) {
+        console.error("Error updating entry:", err);
+        return res.status(500).json({ error: "Error updating entry" });
+      }
+
+      if (this.changes === 0) {
+        return res.status(404).json({ error: "Entry not found" });
+      }
+
+      db.get(
+        "SELECT * FROM travel_entries WHERE id = ?",
+        [id],
+        (selectErr, row) => {
+          if (selectErr) {
+            console.error("Error fetching updated entry:", selectErr);
+            return res
+              .status(500)
+              .json({ error: "Error fetching updated entry" });
+          }
+
+          res.json(row);
+        },
+      );
+    },
+  );
+});
+
 // エントリ検索
 app.get("/api/travel/search", (req, res) => {
   const { keyword, location, startDate, endDate } = req.query;

@@ -3,15 +3,44 @@ import { AuthForm } from "./AuthForm";
 import { Header } from "./Header";
 import { EntryForm } from "./EntryForm";
 import { EntryList } from "./EntryList";
+import type { Entry as JournalEntryType } from "../types";
 
 interface User {
   email: string;
+}
+
+interface ApiEntry {
+  id: number;
+  title: string;
+  date: string;
+  location: string;
+  memo?: string | null;
+  imageURL?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  created_at?: string;
 }
 
 interface Suggestion {
   place_id: string;
   description: string;
 }
+
+interface JournalFormEntry {
+  title: string;
+  date: string;
+  location: string;
+  notes: string;
+  image: string | null;
+}
+
+const emptyEntry: JournalFormEntry = {
+  title: "",
+  date: "",
+  location: "",
+  notes: "",
+  image: null,
+};
 
 export function TravelJournal() {
   const apiBaseUrl =
@@ -39,7 +68,7 @@ export function TravelJournal() {
   const [isLoginPage, setIsLoginPage] = useState(false);
   const [isSignUpPage, setIsSignUpPage] = useState(false);
   const [user, setUser] = useState<User | null>(loadSavedUser);
-  const [entries, setEntries] = useState(loadSavedEntries);
+  const [entries, setEntries] = useState<JournalEntryType[]>([]);
   const [searchParams, setSearchParams] = useState<{
     keyword: string;
     location: string;
@@ -50,63 +79,7 @@ export function TravelJournal() {
     lat: number;
     lng: number;
   } | null>(null);
-  // 検索API呼び出し
-  const fetchEntries = async (params?: {
-    keyword: string;
-    location: string;
-    startDate: string;
-    endDate: string;
-  }) => {
-    try {
-      let url = `${apiBaseUrl}/api/travel`;
-
-      if (
-        params &&
-        (params.keyword ||
-          params.location ||
-          params.startDate ||
-          params.endDate)
-      ) {
-        url = `${apiBaseUrl}/api/travel/search`;
-        const searchParams = new URLSearchParams();
-        if (params.keyword) searchParams.append("keyword", params.keyword);
-        if (params.location) searchParams.append("location", params.location);
-        if (params.startDate)
-          searchParams.append("startDate", params.startDate);
-        if (params.endDate) searchParams.append("endDate", params.endDate);
-        url += `?${searchParams.toString()}`;
-      }
-
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setEntries(data);
-      } else {
-        console.error("Failed to fetch entries:", res.statusText);
-      }
-    } catch (err) {
-      console.error("Fetch error:", err);
-    }
-  };
-  // 検索条件変更時にAPI呼び出し
-  useEffect(() => {
-    if (searchParams) {
-      fetchEntries(searchParams);
-    }
-  }, [searchParams]);
-  const [newEntry, setNewEntry] = useState<{
-    title: string;
-    date: string;
-    location: string;
-    notes: string;
-    image: string | null;
-  }>({
-    title: "",
-    date: "",
-    location: "",
-    notes: "",
-    image: null,
-  });
+  const [newEntry, setNewEntry] = useState<JournalFormEntry>(emptyEntry);
 
   const [editMode, setEditMode] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
@@ -116,77 +89,70 @@ export function TravelJournal() {
     [],
   );
 
-  useEffect(() => {
-    // Persist entries to localStorage with size-safeguards.
-    persistToLocalStorage(entries);
-  }, [entries]);
-
-  // Helper: persist entries safely with size limits and truncation.
-  const persistToLocalStorage = (list: any[]) => {
-    if (typeof window === "undefined") return;
-
-    const MAX_BYTES = 1000 * 1000; // 1MB target
-
-    const minimalize = (items: any[], noteLen = 2000) =>
-      items.map(({ image, notes, ...rest }: any) => ({
-        ...rest,
-        notes: typeof notes === "string" ? notes.slice(0, noteLen) : notes,
-        image: null,
-      }));
-
-    const tryStringSize = (obj: any) => {
+  const fetchEntries = useCallback(
+    async (params?: {
+      keyword: string;
+      location: string;
+      startDate: string;
+      endDate: string;
+    }) => {
       try {
-        const s = JSON.stringify(obj);
-        return new Blob([s]).size;
-      } catch {
-        return Infinity;
-      }
-    };
+        let url = `${apiBaseUrl}/api/travel`;
 
-    try {
-      // Start with last 50 entries and reasonable note length
-      let count = Math.min(50, list.length || 0);
-      let noteLen = 2000;
-      let candidate = minimalize(list.slice(-count), noteLen);
-      let size = tryStringSize(candidate);
+        if (
+          params &&
+          (params.keyword ||
+            params.location ||
+            params.startDate ||
+            params.endDate)
+        ) {
+          url = `${apiBaseUrl}/api/travel/search`;
+          const query = new URLSearchParams();
+          if (params.keyword) query.append("keyword", params.keyword);
+          if (params.location) query.append("location", params.location);
+          if (params.startDate) query.append("startDate", params.startDate);
+          if (params.endDate) query.append("endDate", params.endDate);
+          url += `?${query.toString()}`;
+        }
 
-      // Reduce note length until it fits or until minimal note length
-      while (size > MAX_BYTES && noteLen >= 100) {
-        noteLen = Math.floor(noteLen / 2);
-        candidate = minimalize(list.slice(-count), noteLen);
-        size = tryStringSize(candidate);
-      }
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
 
-      // If still too large, reduce count
-      while (size > MAX_BYTES && count > 1) {
-        count = Math.max(1, Math.floor(count / 2));
-        candidate = minimalize(list.slice(-count), noteLen);
-        size = tryStringSize(candidate);
-      }
-
-      if (size === Infinity || size > MAX_BYTES) {
-        // As a last resort, persist an empty list to avoid repeated quota errors
-        localStorage.setItem("journalEntries", JSON.stringify([]));
-        console.warn(
-          "persistToLocalStorage: Could not fit entries in localStorage; saved empty list",
+        const data = (await response.json()) as ApiEntry[];
+        setEntries(
+          data.map((entry) => ({
+            id: entry.id,
+            title: entry.title,
+            date: entry.date,
+            location: entry.location,
+            notes: entry.memo ?? "",
+            image: entry.imageURL ?? null,
+          })),
         );
-      } else {
-        localStorage.setItem("journalEntries", JSON.stringify(candidate));
+      } catch (error) {
+        console.error("Fetch error:", error);
       }
-    } catch (err) {
-      console.error("persistToLocalStorage failed:", err);
-      try {
-        localStorage.setItem("journalEntries", JSON.stringify([]));
-      } catch (e) {
-        // give up
-        console.error("persistToLocalStorage final fallback failed:", e);
-      }
+    },
+    [apiBaseUrl],
+  );
+
+  useEffect(() => {
+    if (!user) {
+      setEntries([]);
+      return;
     }
-  };
+
+    void fetchEntries(searchParams ?? undefined);
+  }, [user, searchParams, fetchEntries]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
     setUser(null);
+    setEntries([]);
+    setSearchParams(null);
+    resetForm();
   };
 
   const handleAuthSuccess = (userData: User) => {
@@ -194,10 +160,8 @@ export function TravelJournal() {
   };
 
   const handleSelectLocation = (place: Suggestion) => {
-    setNewEntry({ ...newEntry, location: place.description });
-    // For now, we'll use mock coordinates. In a real app, you'd get these from the Google Places API
-    setSelectedCoordinates({ lat: 35.6762, lng: 139.6503 }); // Tokyo coordinates as example
-    // setSuggestions([]);
+    setNewEntry((prev) => ({ ...prev, location: place.description }));
+    setSelectedCoordinates({ lat: 35.6762, lng: 139.6503 });
   };
 
   interface ImageUploadHandler {
@@ -241,14 +205,25 @@ export function TravelJournal() {
       };
 
       if (editMode && editIndex !== null) {
-        // Update existing entry
-        const updatedEntries = entries.map(
-          (entry: typeof newEntry, index: number) =>
-            index === editIndex ? newEntry : entry,
-        );
-        setEntries(updatedEntries);
+        const targetEntry = entries[editIndex];
+        if (!targetEntry) {
+          throw new Error("編集対象のエントリが見つかりませんでした");
+        }
+
+        const response = await fetch(`${apiBaseUrl}/api/travel/${targetEntry.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(entryData),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        await fetchEntries(searchParams ?? undefined);
       } else {
-        // Create new entry
         console.debug(
           "handleSubmit: sending POST to",
           `${apiBaseUrl}/api/travel`,
@@ -267,7 +242,7 @@ export function TravelJournal() {
 
         const savedEntry = await response.json();
         console.log("Entry saved:", savedEntry);
-        await fetchEntries();
+        await fetchEntries(searchParams ?? undefined);
       }
       resetForm();
     } catch (error) {
@@ -282,40 +257,57 @@ export function TravelJournal() {
   };
 
   const resetForm = () => {
-    setNewEntry({
-      title: "",
-      date: "",
-      location: "",
-      notes: "",
-      image: null,
-    });
+    setNewEntry(emptyEntry);
     setEditMode(false);
     setEditIndex(null);
+    setSelectedCoordinates(null);
   };
 
   const handleEditEntry = (index: number) => {
+    const entry = entries[index];
+    if (!entry) {
+      return;
+    }
+
     setEditMode(true);
     setEditIndex(index);
-    setNewEntry(entries[index]);
-  };
-
-  const deleteEntry = async (
-    entryId: number,
-    entries: any,
-    setEntries: any,
-  ) => {
-    const updatedEntries = entries.filter((entry: any) => entry.id !== entryId);
-    setEntries(updatedEntries);
-
-    if (typeof window !== "undefined") {
-      persistToLocalStorage(updatedEntries);
-    }
+    setNewEntry({
+      title: entry.title ?? "",
+      date: entry.date ?? "",
+      location: entry.location ?? "",
+        notes: entry.notes ?? "",
+        image: entry.image ?? null,
+    });
+      setSelectedCoordinates(null);
   };
 
   const handleDeleteEntry = async (index: number) => {
     if (window.confirm("このエントリを削除してもよろしいですか？")) {
-      const entryId = entries[index].id;
-      await deleteEntry(entryId, entries, setEntries);
+      const entry = entries[index];
+      if (!entry) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/travel/${entry.id}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        if (editMode && editIndex === index) {
+          resetForm();
+        }
+
+        await fetchEntries(searchParams ?? undefined);
+      } catch (error) {
+        console.error("Error deleting entry:", error);
+        alert(
+          `エントリの削除に失敗しました。\n詳細: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
   };
 
