@@ -117,7 +117,70 @@ export function TravelJournal() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("journalEntries", JSON.stringify(entries));
+      try {
+        // Try saving full entries first
+        localStorage.setItem("journalEntries", JSON.stringify(entries));
+      } catch (err: any) {
+        // If quota exceeded (usually due to large base64 images), try storing without images
+        const isQuotaError =
+          err &&
+          (err.name === "QuotaExceededError" ||
+            err.name === "NS_ERROR_DOM_QUOTA_REACHED");
+        if (isQuotaError) {
+          console.warn(
+            "localStorage quota exceeded when saving journalEntries — saving without images",
+          );
+          try {
+            const withoutImages = entries.map((entry: any) => {
+              const { image, ...rest } = entry;
+              return { ...rest, image: null };
+            });
+            localStorage.setItem(
+              "journalEntries",
+              JSON.stringify(withoutImages),
+            );
+          } catch (err2: any) {
+            console.warn(
+              "Still over quota after removing images — trimming entries to fit",
+            );
+            // As a last resort, save only the most recent N entries (without images)
+            let N = 50;
+            let trimmed = entries.map((entry: any) => ({
+              ...entry,
+              image: null,
+            }));
+            while (trimmed.length > 0) {
+              try {
+                const toSave = trimmed.slice(-N);
+                localStorage.setItem("journalEntries", JSON.stringify(toSave));
+                break;
+              } catch (err3) {
+                N = Math.max(1, Math.floor(N / 2));
+                if (N === 1 && trimmed.length > 1) {
+                  // keep only the last entry
+                  trimmed = trimmed.slice(-1);
+                }
+                if (N === 1 && trimmed.length === 1) {
+                  try {
+                    localStorage.setItem(
+                      "journalEntries",
+                      JSON.stringify(trimmed),
+                    );
+                  } catch (finalErr) {
+                    console.error(
+                      "Unable to persist journalEntries to localStorage:",
+                      finalErr,
+                    );
+                  }
+                  break;
+                }
+              }
+            }
+          }
+        } else {
+          console.error("Error saving journalEntries to localStorage:", err);
+        }
+      }
     }
   }, [entries]);
 
@@ -158,12 +221,12 @@ export function TravelJournal() {
       return;
     }
     if (isSubmitting) {
-      console.debug('handleSubmit: already submitting, ignoring duplicate');
+      console.debug("handleSubmit: already submitting, ignoring duplicate");
       return;
     }
 
     try {
-      console.debug('handleSubmit: starting submit for', newEntry.title);
+      console.debug("handleSubmit: starting submit for", newEntry.title);
       setIsSubmitting(true);
       const entryData = {
         title: newEntry.title,
@@ -184,7 +247,10 @@ export function TravelJournal() {
         setEntries(updatedEntries);
       } else {
         // Create new entry
-        console.debug('handleSubmit: sending POST to', `${apiBaseUrl}/api/travel`);
+        console.debug(
+          "handleSubmit: sending POST to",
+          `${apiBaseUrl}/api/travel`,
+        );
         const response = await fetch(`${apiBaseUrl}/api/travel`, {
           method: "POST",
           headers: {
