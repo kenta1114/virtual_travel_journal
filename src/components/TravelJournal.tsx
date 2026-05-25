@@ -34,6 +34,53 @@ interface JournalFormEntry {
   image: string | null;
 }
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_UPLOAD_FILE_SIZE_BYTES = 8 * 1024 * 1024; // 8MB input limit
+const MAX_OUTPUT_IMAGE_SIZE_BYTES = 700 * 1024; // approx payload-safe target
+const IMAGE_MAX_WIDTH = 1280;
+const IMAGE_MAX_HEIGHT = 1280;
+
+const dataUrlSizeBytes = (dataUrl: string): number => {
+  const base64 = dataUrl.split(",")[1] ?? "";
+  return Math.ceil((base64.length * 3) / 4);
+};
+
+const canvasToDataUrl = (
+  canvas: HTMLCanvasElement,
+  quality: number,
+): string => {
+  return canvas.toDataURL("image/jpeg", quality);
+};
+
+const compressImageFile = async (
+  file: File,
+  quality: number,
+  maxWidth: number,
+  maxHeight: number,
+): Promise<string> => {
+  const bitmap = await createImageBitmap(file);
+  const ratio = Math.min(
+    maxWidth / bitmap.width,
+    maxHeight / bitmap.height,
+    1,
+  );
+
+  const width = Math.max(1, Math.round(bitmap.width * ratio));
+  const height = Math.max(1, Math.round(bitmap.height * ratio));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Canvas context not available");
+  }
+
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  return canvasToDataUrl(canvas, quality);
+};
+
 const emptyEntry: JournalFormEntry = {
   title: "",
   date: "",
@@ -165,16 +212,44 @@ export function TravelJournal() {
   };
 
   interface ImageUploadHandler {
-    (file: File): void;
+    (file: File): Promise<void>;
   }
 
-  const handleImageUpload: ImageUploadHandler = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64Data = reader.result as string;
-      setNewEntry((prev) => ({ ...prev, image: base64Data }));
-    };
-    reader.readAsDataURL(file);
+  const handleImageUpload: ImageUploadHandler = useCallback(async (file: File) => {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      alert("JPEG / PNG / WebP の画像のみ対応しています。");
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+      alert("画像サイズが大きすぎます。8MB以下の画像を選択してください。");
+      return;
+    }
+
+    try {
+      let compressedDataUrl = await compressImageFile(
+        file,
+        0.78,
+        IMAGE_MAX_WIDTH,
+        IMAGE_MAX_HEIGHT,
+      );
+
+      if (dataUrlSizeBytes(compressedDataUrl) > MAX_OUTPUT_IMAGE_SIZE_BYTES) {
+        compressedDataUrl = await compressImageFile(file, 0.62, 960, 960);
+      }
+
+      if (dataUrlSizeBytes(compressedDataUrl) > MAX_OUTPUT_IMAGE_SIZE_BYTES) {
+        alert(
+          "画像を圧縮しても送信サイズ上限を超えています。より小さい画像を選択してください。",
+        );
+        return;
+      }
+
+      setNewEntry((prev) => ({ ...prev, image: compressedDataUrl }));
+    } catch (error) {
+      console.error("Image compression failed:", error);
+      alert("画像の処理に失敗しました。別の画像をお試しください。");
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
