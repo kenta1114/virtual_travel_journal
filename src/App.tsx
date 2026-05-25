@@ -6,5 +6,3 @@ function App() {
 }
 
 export default App;
-
-<script type="module" src="./src/App.js"></script>

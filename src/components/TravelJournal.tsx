@@ -14,6 +14,8 @@ interface Suggestion {
 }
 
 export function TravelJournal() {
+  const apiBaseUrl = import.meta.env.DEV ? "http://localhost:5001" : "";
+
   const loadSavedEntries = () => {
     if (typeof window !== "undefined") {
       const savedEntries = localStorage.getItem("journalEntries");
@@ -34,28 +36,43 @@ export function TravelJournal() {
   const [isSignUpPage, setIsSignUpPage] = useState(false);
   const [user, setUser] = useState<User | null>(loadSavedUser);
   const [entries, setEntries] = useState(loadSavedEntries);
-  const [searchParams, setSearchParams] = useState<{ keyword: string; location: string; startDate: string; endDate: string } | null>(null);
-  const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [searchParams, setSearchParams] = useState<{
+    keyword: string;
+    location: string;
+    startDate: string;
+    endDate: string;
+  } | null>(null);
+  const [selectedCoordinates, setSelectedCoordinates] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   // 検索API呼び出し
-  const fetchEntries = async (params?: { keyword: string; location: string; startDate: string; endDate: string }) => {
+  const fetchEntries = async (params?: {
+    keyword: string;
+    location: string;
+    startDate: string;
+    endDate: string;
+  }) => {
     try {
-      // Vercelの環境に応じてAPIのURLを切り替え
-      const baseURL = process.env.NODE_ENV === 'production' 
-        ? window.location.origin 
-        : "http://localhost:5001";
-        
-      let url = `${baseURL}/api/travel`;
-      
-      if (params && (params.keyword || params.location || params.startDate || params.endDate)) {
-        url = `${baseURL}/api/travel/search`;
+      let url = `${apiBaseUrl}/api/travel`;
+
+      if (
+        params &&
+        (params.keyword ||
+          params.location ||
+          params.startDate ||
+          params.endDate)
+      ) {
+        url = `${apiBaseUrl}/api/travel/search`;
         const searchParams = new URLSearchParams();
-        if (params.keyword) searchParams.append('keyword', params.keyword);
-        if (params.location) searchParams.append('location', params.location);
-        if (params.startDate) searchParams.append('startDate', params.startDate);
-        if (params.endDate) searchParams.append('endDate', params.endDate);
+        if (params.keyword) searchParams.append("keyword", params.keyword);
+        if (params.location) searchParams.append("location", params.location);
+        if (params.startDate)
+          searchParams.append("startDate", params.startDate);
+        if (params.endDate) searchParams.append("endDate", params.endDate);
         url += `?${searchParams.toString()}`;
       }
-      
+
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -89,7 +106,9 @@ export function TravelJournal() {
 
   const [editMode, setEditMode] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
-  const [suggestions] = useState<{ place_id: string; description: string }[]>([]);
+  const [suggestions] = useState<{ place_id: string; description: string }[]>(
+    [],
+  );
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -98,15 +117,13 @@ export function TravelJournal() {
   }, [entries]);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    localStorage.removeItem("user");
     setUser(null);
   };
 
   const handleAuthSuccess = (userData: User) => {
     setUser(userData);
   };
-
-
 
   const handleSelectLocation = (place: Suggestion) => {
     setNewEntry({ ...newEntry, location: place.description });
@@ -121,7 +138,7 @@ export function TravelJournal() {
 
   const handleImageUpload: ImageUploadHandler = useCallback((file: File) => {
     const reader = new FileReader();
-    reader.onloadend=()=>{
+    reader.onloadend = () => {
       const base64Data = reader.result as string;
       setNewEntry((prev) => ({ ...prev, image: base64Data }));
     };
@@ -149,20 +166,17 @@ export function TravelJournal() {
 
       if (editMode && editIndex !== null) {
         // Update existing entry
-        const updatedEntries = entries.map((entry: typeof newEntry, index: number) =>
-          index === editIndex ? newEntry : entry
+        const updatedEntries = entries.map(
+          (entry: typeof newEntry, index: number) =>
+            index === editIndex ? newEntry : entry,
         );
         setEntries(updatedEntries);
       } else {
         // Create new entry
-        const baseURL = process.env.NODE_ENV === 'production' 
-          ? window.location.origin 
-          : "http://localhost:5001";
-          
-        const response = await fetch(`${baseURL}/api/travel`, {
-          method: 'POST',
+        const response = await fetch(`${apiBaseUrl}/api/travel`, {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(entryData),
         });
@@ -172,13 +186,15 @@ export function TravelJournal() {
         }
 
         const savedEntry = await response.json();
-        console.log('Entry saved:', savedEntry);
+        console.log("Entry saved:", savedEntry);
         await fetchEntries();
       }
       resetForm();
     } catch (error) {
-      console.error('Error saving entry:', error);
-      alert(`エントリの保存に失敗しました。\n詳細: ${error instanceof Error ? error.message : String(error)}`);
+      console.error("Error saving entry:", error);
+      alert(
+        `エントリの保存に失敗しました。\n詳細: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   };
 
@@ -194,14 +210,18 @@ export function TravelJournal() {
     setEditIndex(null);
   };
 
-  const handleEditEntry = (index:number) => {
+  const handleEditEntry = (index: number) => {
     setEditMode(true);
     setEditIndex(index);
     setNewEntry(entries[index]);
   };
 
-  const deleteEntry = async (entryId:number, entries:any, setEntries:any) => {
-    const updatedEntries = entries.filter((entry:any) => entry.id !== entryId);
+  const deleteEntry = async (
+    entryId: number,
+    entries: any,
+    setEntries: any,
+  ) => {
+    const updatedEntries = entries.filter((entry: any) => entry.id !== entryId);
     setEntries(updatedEntries);
 
     if (typeof window !== "undefined") {
@@ -209,10 +229,10 @@ export function TravelJournal() {
     }
   };
 
-  const handleDeleteEntry = async (index:number) => {
+  const handleDeleteEntry = async (index: number) => {
     if (window.confirm("このエントリを削除してもよろしいですか？")) {
       const entryId = entries[index].id;
-      await deleteEntry(entryId,entries,setEntries);
+      await deleteEntry(entryId, entries, setEntries);
     }
   };
 
@@ -225,8 +245,8 @@ export function TravelJournal() {
               <h1 className="text-4xl font-bold text-[#2c5f2d] mb-8 text-center">
                 Virtual Travel Journal
               </h1>
-              {(isLoginPage || isSignUpPage) ? (
-                <AuthForm 
+              {isLoginPage || isSignUpPage ? (
+                <AuthForm
                   isLogin={isLoginPage}
                   onClose={() => {
                     setIsLoginPage(false);
@@ -263,7 +283,7 @@ export function TravelJournal() {
             <Header
               email={user.email}
               onLogout={handleLogout}
-              onSearch={params => setSearchParams(params)}
+              onSearch={(params) => setSearchParams(params)}
             />
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <EntryForm
@@ -271,7 +291,9 @@ export function TravelJournal() {
                 editMode={editMode}
                 suggestions={suggestions}
                 onEntryChange={setNewEntry}
-                onLocationChange={(e) => setNewEntry({ ...newEntry, location: e.target.value })}
+                onLocationChange={(e) =>
+                  setNewEntry({ ...newEntry, location: e.target.value })
+                }
                 onSelectLocation={handleSelectLocation}
                 onImageUpload={handleImageUpload}
                 onSubmit={handleSubmit}
