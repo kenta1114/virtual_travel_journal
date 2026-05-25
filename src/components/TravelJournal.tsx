@@ -14,7 +14,10 @@ interface Suggestion {
 }
 
 export function TravelJournal() {
-  const apiBaseUrl = import.meta.env.DEV ? "http://localhost:5001" : "";
+  const apiBaseUrl =
+    typeof window !== "undefined" && (import.meta.env.DEV || window.location.hostname === "localhost")
+      ? "http://localhost:5001"
+      : "";
 
   const loadSavedEntries = () => {
     if (typeof window !== "undefined") {
