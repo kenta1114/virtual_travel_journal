@@ -1,4 +1,3 @@
-
 let mockEntries = [];
 
 export default async function handler(req, res) {
@@ -79,10 +78,10 @@ export default async function handler(req, res) {
       if (id) {
         const numericId = Number(id);
         mockEntries = mockEntries.filter((entry) => entry.id !== numericId);
-        res.status(200).json({ message: 'Entry deleted successfully' });
+        res.status(200).json({ message: "Entry deleted successfully" });
       } else {
         mockEntries = [];
-        res.status(200).json({ message: 'All entries deleted successfully' });
+        res.status(200).json({ message: "All entries deleted successfully" });
       }
     } else {
       res.status(405).json({ error: "Method not allowed" });

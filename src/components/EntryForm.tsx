@@ -1,4 +1,4 @@
-import { Camera } from 'lucide-react';
+import { Camera } from "lucide-react";
 
 interface EntryFormProps {
   newEntry: {
@@ -36,7 +36,9 @@ export function EntryForm({
           type="text"
           placeholder="タイトル"
           value={newEntry.title}
-          onChange={(e) => onEntryChange({ ...newEntry, title: e.target.value })}
+          onChange={(e) =>
+            onEntryChange({ ...newEntry, title: e.target.value })
+          }
           className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-[#2c5f2d] focus:border-transparent transition-all"
         />
         <input
@@ -102,9 +104,9 @@ export function EntryForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={`w-full md:w-auto px-8 py-3 rounded-lg flex items-center justify-center gap-2 ${isSubmitting ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-[#2c5f2d] text-white hover:bg-[#234a24]'}`}
+        className={`w-full md:w-auto px-8 py-3 rounded-lg flex items-center justify-center gap-2 ${isSubmitting ? "bg-gray-400 text-gray-200 cursor-not-allowed" : "bg-[#2c5f2d] text-white hover:bg-[#234a24]"}`}
       >
-        {isSubmitting ? '送信中…' : editMode ? '更新' : '追加'}
+        {isSubmitting ? "送信中…" : editMode ? "更新" : "追加"}
       </button>
     </form>
   );
