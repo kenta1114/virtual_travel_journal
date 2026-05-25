@@ -329,12 +329,26 @@ export function TravelJournal() {
     }
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/travel`, {
-        method: "DELETE",
-      });
+      const deleteResults = await Promise.all(
+        entries.map(async (entry) => {
+          const response = await fetch(`${apiBaseUrl}/api/travel/${entry.id}`, {
+            method: "DELETE",
+          });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          if (!response.ok && response.status !== 404) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          return response;
+        }),
+      );
+
+      const hadOnlyNotFoundResponses = deleteResults.every(
+        (response) => response.ok || response.status === 404,
+      );
+
+      if (!hadOnlyNotFoundResponses) {
+        throw new Error("一部のエントリを削除できませんでした。");
       }
 
       resetForm();
