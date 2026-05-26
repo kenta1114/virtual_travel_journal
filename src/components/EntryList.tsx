@@ -1,4 +1,4 @@
-import { Edit2, Trash2, Calendar, MapPin } from 'lucide-react';
+import { Edit2, Copy, Trash2, Calendar, MapPin } from 'lucide-react';
 
 interface Entry {
   title: string;
@@ -11,10 +11,11 @@ interface Entry {
 interface EntryListProps {
   entries: Entry[];
   onEdit: (index: number) => void;
+  onDuplicate: (index: number) => void;
   onDelete: (index: number) => void;
 }
 
-export function EntryList({ entries, onEdit, onDelete }: EntryListProps) {
+export function EntryList({ entries, onEdit, onDuplicate, onDelete }: EntryListProps) {
   return (
     <div className="mt-12 grid grid-cols-1 gap-6">
       {entries.map((entry, index) => (
@@ -29,14 +30,23 @@ export function EntryList({ entries, onEdit, onDelete }: EntryListProps) {
               </h3>
               <div className="flex gap-2">
                 <button
+                  onClick={() => onDuplicate(index)}
+                  className="p-2 text-gray-600 hover:text-[#2c5f2d] transition-colors"
+                  title="この記事を複製して新規追加"
+                >
+                  <Copy className="w-5 h-5" />
+                </button>
+                <button
                   onClick={() => onEdit(index)}
                   className="p-2 text-gray-600 hover:text-[#2c5f2d] transition-colors"
+                  title="編集"
                 >
                   <Edit2 className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => onDelete(index)}
                   className="p-2 text-gray-600 hover:text-red-500 transition-colors"
+                  title="削除"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>

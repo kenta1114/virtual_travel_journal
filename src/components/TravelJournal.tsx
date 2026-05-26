@@ -435,6 +435,24 @@ export function TravelJournal() {
     setSelectedCoordinates(null);
   };
 
+  const handleDuplicateEntry = (index: number) => {
+    const entry = entries[index];
+    if (!entry) {
+      return;
+    }
+
+    setEditMode(false);
+    setEditIndex(null);
+    setNewEntry({
+      title: entry.title ?? "",
+      date: entry.date ?? "",
+      location: entry.location ?? "",
+      notes: entry.notes ?? "",
+      image: entry.image ?? null,
+    });
+    setSelectedCoordinates(null);
+  };
+
   const handleDeleteEntry = async (index: number) => {
     if (window.confirm("このエントリを削除してもよろしいですか？")) {
       const entry = entries[index];
@@ -588,6 +606,7 @@ export function TravelJournal() {
               <EntryList
                 entries={entries}
                 onEdit={handleEditEntry}
+                onDuplicate={handleDuplicateEntry}
                 onDelete={handleDeleteEntry}
               />
             </div>
