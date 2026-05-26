@@ -344,11 +344,10 @@ export function TravelJournal() {
                   body: JSON.stringify({ dataUrl: newEntry.image }),
                 });
 
-                if (!resp.ok) {
-                  console.warn(
-                    "Local image upload failed, saving entry without image",
-                    resp.status,
-                  );
+                if (resp.status === 405) {
+                  console.warn("upload-image: 405, saving without image");
+                } else if (!resp.ok) {
+                  console.warn("upload-image failed:", resp.status, "saving without image");
                 } else {
                   const json = await resp.json();
                   uploadedImageUrl = json.url || json.imageURL || null;

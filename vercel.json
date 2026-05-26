@@ -4,11 +4,23 @@
   "outputDirectory": "dist",
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
       "handle": "filesystem"
     },
     {
       "src": "/(.*)",
       "dest": "/index.html"
     }
+  ],
+  "rewrites": [
+    { "source": "/api/travel/search", "destination": "/api/travel/search" },
+    { "source": "/api/travel/:id",    "destination": "/api/travel/[id]"  },
+    { "source": "/api/travel",        "destination": "/api/travel"        },
+    { "source": "/api/upload-image",  "destination": "/api/upload-image"  },
+    { "source": "/(.*)",              "destination": "/index.html"         }
   ]
+
 }
