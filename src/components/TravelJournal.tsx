@@ -34,6 +34,15 @@ interface JournalFormEntry {
   image: string | null;
 }
 
+const toJournalEntry = (entry: ApiEntry) => ({
+  id: entry.id,
+  title: entry.title,
+  date: entry.date,
+  location: entry.location,
+  notes: entry.memo ?? "",
+  image: entry.imageURL ?? null,
+});
+
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_UPLOAD_FILE_SIZE_BYTES = 8 * 1024 * 1024; // 8MB input limit
 const MAX_OUTPUT_IMAGE_SIZE_BYTES = 700 * 1024; // approx payload-safe target
@@ -72,34 +81,41 @@ const uploadImageToStorage = async (
     return null;
   }
 
-  const blob = await dataUrlToBlob(imageDataUrl);
-  const extension = blob.type.includes("png") ? "png" : "jpg";
-  const file = new File([blob], `journal-${Date.now()}.${extension}`, {
-    type: blob.type || "image/jpeg",
-  });
+  try {
+    const blob = await dataUrlToBlob(imageDataUrl);
+    const extension = blob.type.includes("png") ? "png" : "jpg";
+    const file = new File([blob], `journal-${Date.now()}.${extension}`, {
+      type: blob.type || "image/jpeg",
+    });
 
-  const formData = new FormData();
-  formData.append("file", file);
-  if (IMAGE_UPLOAD_PRESET) {
-    formData.append("upload_preset", IMAGE_UPLOAD_PRESET);
+    const formData = new FormData();
+    formData.append("file", file);
+    if (IMAGE_UPLOAD_PRESET) {
+      formData.append("upload_preset", IMAGE_UPLOAD_PRESET);
+    }
+
+    const response = await fetch(IMAGE_UPLOAD_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      console.warn("Image upload failed, continuing without image:", response.status);
+      return null;
+    }
+
+    const payload = await response.json();
+    const uploadedUrl = payload.secure_url || payload.url;
+    if (!uploadedUrl) {
+      console.warn("Image upload response did not contain a URL, continuing without image");
+      return null;
+    }
+
+    return uploadedUrl;
+  } catch (error) {
+    console.warn("Image upload failed, continuing without image:", error);
+    return null;
   }
-
-  const response = await fetch(IMAGE_UPLOAD_URL, {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Image upload failed: HTTP ${response.status}`);
-  }
-
-  const payload = await response.json();
-  const uploadedUrl = payload.secure_url || payload.url;
-  if (!uploadedUrl) {
-    throw new Error("Image upload response did not contain an URL");
-  }
-
-  return uploadedUrl;
 };
 
 const compressImageFile = async (
@@ -214,16 +230,7 @@ export function TravelJournal() {
         }
 
         const data = (await response.json()) as ApiEntry[];
-        setEntries(
-          data.map((entry) => ({
-            id: entry.id,
-            title: entry.title,
-            date: entry.date,
-            location: entry.location,
-            notes: entry.memo ?? "",
-            image: entry.imageURL ?? null,
-          })),
-        );
+        setEntries(data.map(toJournalEntry));
       } catch (error) {
         console.error("Fetch error:", error);
       }
@@ -327,43 +334,7 @@ export function TravelJournal() {
         ) {
           uploadedImageUrl = newEntry.image;
         } else {
-          try {
-            if (IMAGE_UPLOAD_URL) {
-              uploadedImageUrl = await uploadImageToStorage(newEntry.image);
-              if (!uploadedImageUrl) {
-                console.warn(
-                  "Image upload returned no URL. Entry will be saved without image.",
-                );
-              }
-            } else {
-              // No external upload configured — try local server upload shim
-              try {
-                const resp = await fetch(`${apiBaseUrl}/api/upload-image`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ dataUrl: newEntry.image }),
-                });
-
-                if (resp.status === 405) {
-                  console.warn("upload-image: 405, saving without image");
-                } else if (!resp.ok) {
-                  console.warn("upload-image failed:", resp.status, "saving without image");
-                } else {
-                  const json = await resp.json();
-                  uploadedImageUrl = json.url || json.imageURL || null;
-                }
-              } catch (localUploadErr) {
-                console.error("Local image upload failed:", localUploadErr);
-                // fall back to saving without image
-              }
-            }
-          } catch (uploadError) {
-            console.error("Image upload failed:", uploadError);
-            alert(
-              "画像アップロードに失敗しました。画像なしで保存する場合はそのまま再投稿してください。",
-            );
-            return;
-          }
+          uploadedImageUrl = newEntry.image;
         }
       }
 
@@ -398,7 +369,11 @@ export function TravelJournal() {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        await fetchEntries(searchParams ?? undefined);
+        const savedEntry = (await response.json()) as ApiEntry;
+        setEntries((currentEntries) => [
+          toJournalEntry(savedEntry),
+          ...currentEntries.filter((entry) => entry.id !== savedEntry.id),
+        ]);
       } else {
         console.debug(
           "handleSubmit: sending POST to",
@@ -416,9 +391,12 @@ export function TravelJournal() {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const savedEntry = await response.json();
+        const savedEntry = (await response.json()) as ApiEntry;
         console.log("Entry saved:", savedEntry);
-        await fetchEntries(searchParams ?? undefined);
+        setEntries((currentEntries) => [
+          toJournalEntry(savedEntry),
+          ...currentEntries.filter((entry) => entry.id !== savedEntry.id),
+        ]);
       }
       resetForm();
     } catch (error) {

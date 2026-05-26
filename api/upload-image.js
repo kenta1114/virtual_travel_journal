@@ -1,38 +1,101 @@
-export default function handler(req,res){
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if(req.method==='OPTIONS'){
-    return res.status(204).end();
+const parseDataUrl = (dataUrl) => {
+  const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (!match) {
+    return null;
   }
 
-  //405 guard- ここが本番で欠けていると Vercel がデフォルト 405 を返す
-  if(req.method !=='POST'){
-    res.setHeader('Allow', 'POST, OPTIONS');
-    return res.status(405).json({error:'Method Not Allowed'});
+  return {
+    mimeType: match[1],
+    base64: match[2],
+  };
+};
+
+const dataUrlToBlob = (parsed) => {
+  const buffer = Buffer.from(parsed.base64, "base64");
+  return new Blob([buffer], { type: parsed.mimeType });
+};
+
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Credentials", true);
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
+  );
+
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return;
   }
 
-  // 外部ストレージ未設定の場合は null を返すだけ（保存フローを止めない）
-  const { dataurl } = req.body??{};
-
-
-  if(!dataUrl){
-    return res.status(400).json({ error:'dataUrl is required'});
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
   }
 
-  // VITE_ 変数はサーバー側では参照不可。Vercel 環境変数を直接使う。
-  const uploadUrl = process.env.IMAGE_UPLOAD_URL;
-  const uploadPreset = process.env.IMAGE_UPLOAD_PRESET;
+  try {
+    const { dataUrl } = req.body ?? {};
 
-  if(!uploadUrl){
-    // 外部アップロード未設定 → null を返して呼び出し元がスキップできるようにする
-    return res.status(200).json({ url:null });
+    if (!dataUrl || typeof dataUrl !== "string") {
+      return res.status(400).json({ error: "Missing dataUrl" });
+    }
+
+    const parsed = parseDataUrl(dataUrl);
+    if (!parsed) {
+      return res.status(400).json({ error: "Invalid dataUrl" });
+    }
+
+    const uploadUrl =
+      process.env.IMAGE_UPLOAD_URL ?? process.env.VITE_IMAGE_UPLOAD_URL;
+    const uploadPreset =
+      process.env.IMAGE_UPLOAD_PRESET ?? process.env.VITE_IMAGE_UPLOAD_PRESET;
+
+    if (uploadUrl) {
+      try {
+        const blob = dataUrlToBlob(parsed);
+        const extension =
+          parsed.mimeType.split("/")[1] === "jpeg"
+            ? "jpg"
+            : parsed.mimeType.split("/")[1];
+        const filename = `journal-${Date.now()}.${extension}`;
+
+        const formData = new FormData();
+        formData.append("file", blob, filename);
+        if (uploadPreset) {
+          formData.append("upload_preset", uploadPreset);
+        }
+
+        const uploadResponse = await fetch(uploadUrl, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (uploadResponse.ok) {
+          const payload = await uploadResponse.json();
+          const uploadedUrl = payload.secure_url || payload.url;
+
+          if (uploadedUrl) {
+            return res.status(201).json({ url: uploadedUrl });
+          }
+        }
+
+        console.warn(
+          "External image upload failed, falling back to inline data URL",
+        );
+      } catch (uploadError) {
+        console.warn(
+          "External image upload threw, falling back to inline data URL:",
+          uploadError,
+        );
+      }
+    }
+
+    // No external storage configured in production: return the data URL so the
+    // entry can still be saved and rendered without a 405/failed upload.
+    return res.status(201).json({ url: dataUrl });
+  } catch (error) {
+    console.error("Upload image API error:", error);
+    return res.status(500).json({ error: "Failed to save image" });
   }
-
-  // Cloudinary などへのアップロードは呼び出し元 (TravelJournal.tsx) の
-  // uploadImageToStorage() で VITE_IMAGE_UPLOAD_URL を使って直接行う設計のため、
-  // このエンドポイントは「フォールバック確認用」として url: null を返すのみ。
-  // 将来サーバーサイドアップロードに変更する場合はここに実装する。
-  return res.status(200).json({url:null, uploadUrl, uploadPreset});
 }
