@@ -4,6 +4,11 @@
   "outputDirectory": "dist",
   "routes": [
     {
+      "src": "/api/travel/([^/]+)$",
+      "dest": "/api/travel/[id].js?id=$1",
+      "methods": ["GET", "PUT", "DELETE", "OPTIONS"]
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     },
@@ -14,12 +19,5 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "rewrites": [
-    { "source": "/api/travel/search", "destination": "/api/travel/search" },
-    { "source": "/api/travel/:id", "destination": "/api/travel/[id]" },
-    { "source": "/api/travel", "destination": "/api/travel" },
-    { "source": "/api/upload-image", "destination": "/api/upload-image" },
-    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
