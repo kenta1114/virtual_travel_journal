@@ -5,7 +5,7 @@
   "routes": [
     {
       "src": "/api/travel/([^/]+)$",
-      "dest": "/api/travel/[id].js?id=$1",
+      "dest": "/api/travel.js?id=$1",
       "methods": ["GET", "PUT", "DELETE", "OPTIONS"]
     },
     {
