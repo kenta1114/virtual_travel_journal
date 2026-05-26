@@ -1,9 +1,12 @@
+let mockEntries = [];
+
 export default async function handler(req, res) {
+  // CORS設定
   res.setHeader("Access-Control-Allow-Credentials", true);
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader(
     "Access-Control-Allow-Methods",
-    "GET,OPTIONS,PUT,DELETE",
+    "GET,OPTIONS,PATCH,DELETE,PUT",
   );
   res.setHeader(
     "Access-Control-Allow-Headers",
@@ -15,43 +18,31 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (req.method !== "PUT" && req.method !== "DELETE" && req.method !== "GET") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
-
-  const id = Number(req.query.id);
-
-  if (!Number.isFinite(id) || id <= 0) {
-    res.status(400).json({ error: "Invalid entry id" });
-    return;
-  }
-
   try {
-    if (req.method === "GET") {
-      return res.status(200).json({
-        id,
-        title: "",
-        date: "",
-        location: "",
-        memo: "",
-        imageURL: null,
-      });
-    }
+    const { id } = req.query;
 
     if (req.method === "PUT") {
+      const numericId = Number(id);
       const nextEntry = {
-        id,
+        id: numericId,
         ...req.body,
         created_at: new Date().toISOString(),
       };
 
-      return res.status(200).json(nextEntry);
-    }
+      mockEntries = mockEntries.map((entry) =>
+        entry.id === numericId ? nextEntry : entry,
+      );
 
-    return res.status(200).json({ message: "Entry deleted successfully" });
+      res.status(200).json(nextEntry);
+    } else if (req.method === "DELETE") {
+      const numericId = Number(id);
+      mockEntries = mockEntries.filter((entry) => entry.id !== numericId);
+      res.status(200).json({ message: "Entry deleted successfully" });
+    } else {
+      res.status(405).json({ error: "Method not allowed" });
+    }
   } catch (error) {
-    console.error("API travel/[id] error:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("API Error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 }
